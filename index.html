@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Poslechový test — TCN emulace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0e0f11;--bg2:#161719;--bg3:#1e2024;--border:#2a2d33;
+    --text:#e8e9eb;--muted:#6b7280;--accent:#4ade80;--accent2:#22c55e;
+    --warn:#f59e0b;--blue:#60a5fa;--red:#f87171;
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-weight:300;min-height:100vh;}
+  header{border-bottom:1px solid var(--border);padding:1.25rem 2rem;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:.05em;}
+  .progress-bar-wrap{flex:1;max-width:300px;margin:0 2rem;}
+  .progress-track{height:2px;background:var(--border);border-radius:2px;}
+  .progress-fill{height:2px;background:var(--accent);border-radius:2px;transition:width .4s ease;}
+  .progress-label{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px;}
+  .effect-badge-header{font-family:var(--mono);font-size:12px;color:var(--warn);border:1px solid rgba(245,158,11,.3);padding:3px 10px;border-radius:2px;}
+  main{max-width:760px;margin:0 auto;padding:2.5rem 1.5rem 4rem;}
+  .screen{display:none;}
+  .screen.active{display:block;animation:fadeIn .35s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+  .intro-badge{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:3px 10px;border-radius:2px;margin-bottom:1.5rem;letter-spacing:.08em;}
+  h1{font-size:2rem;font-weight:300;line-height:1.25;margin-bottom:1rem;}
+  h1 span{color:var(--accent);}
+  .intro-text{color:var(--muted);font-size:15px;line-height:1.7;margin-bottom:2rem;}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:2.5rem;}
+  .info-cell{background:var(--bg2);padding:1rem 1.2rem;}
+  .info-cell-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+  .info-cell-val{font-size:14px;font-weight:500;}
+  .name-section{margin-bottom:1.5rem;}
+  .name-section label{display:block;font-family:var(--mono);font-size:12px;color:var(--muted);margin-bottom:8px;letter-spacing:.05em;}
+  .name-section input,.name-section select{width:100%;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:15px;padding:.7rem 1rem;border-radius:6px;outline:none;transition:border-color .2s;}
+  .name-section input:focus,.name-section select:focus{border-color:var(--accent);}
+  .name-section select option{background:var(--bg3);}
+  .task-meta{display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem;flex-wrap:wrap;}
+  .tag{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:2px;letter-spacing:.06em;}
+  .tag-method{background:rgba(74,222,128,.12);color:var(--accent);border:1px solid rgba(74,222,128,.3);}
+  .tag-gain{background:rgba(96,165,250,.12);color:var(--blue);border:1px solid rgba(96,165,250,.3);}
+  .tag-stim{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.3);}
+  .task-title{font-size:1.1rem;font-weight:400;line-height:1.4;margin-bottom:.4rem;}
+  .task-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:1.75rem;}
+  .player-row{display:flex;gap:10px;margin-bottom:.75rem;align-items:center;flex-wrap:wrap;}
+  .play-btn{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:13px;padding:.6rem 1.1rem;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap;}
+  .play-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .play-btn.playing{border-color:var(--accent);color:var(--accent);background:rgba(74,222,128,.08);}
+  .play-btn svg{width:14px;height:14px;flex-shrink:0;}
+  .progress-audio{flex:1;min-width:100px;-webkit-appearance:none;height:3px;background:var(--border);border-radius:2px;outline:none;cursor:pointer;}
+  .progress-audio::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;background:var(--accent);border-radius:50%;cursor:pointer;}
+  .time-label{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:70px;text-align:right;}
+  .pref-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1.5rem;}
+  .pref-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--sans);font-size:15px;font-weight:400;padding:1.1rem;border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;}
+  .pref-btn:hover{border-color:var(--accent);}
+  .pref-btn.selected{border-color:var(--accent);background:rgba(74,222,128,.1);color:var(--accent);}
+  .abx-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem;}
+  .abx-x-row{margin-bottom:1.5rem;}
+  .abx-x-box{border:1px solid var(--warn);border-radius:8px;padding:.75rem 1rem;background:rgba(245,158,11,.05);}
+  .abx-x-label{font-family:var(--mono);font-size:11px;color:var(--warn);margin-bottom:8px;letter-spacing:.06em;}
+  .abx-choice{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:1.5rem;}
+  .abx-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:14px;padding:.9rem;border-radius:8px;cursor:pointer;transition:all .2s;text-align:center;}
+  .abx-btn:hover{border-color:var(--blue);color:var(--blue);}
+  .abx-btn.selected{border-color:var(--blue);background:rgba(96,165,250,.1);color:var(--blue);}
+  .mushra-ref{border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--bg2);margin-bottom:1.25rem;}
+  .mushra-ref-label{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:.06em;}
+  .mushra-samples{display:flex;flex-direction:column;gap:10px;}
+  .mushra-sample{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1rem 1.2rem;}
+  .mushra-sample-top{display:flex;align-items:center;gap:10px;margin-bottom:.85rem;flex-wrap:wrap;}
+  .mushra-sample-id{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:24px;}
+  .mushra-slider-row{display:flex;align-items:center;gap:12px;}
+  .mushra-slider{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;outline:none;cursor:pointer;background:var(--border);}
+  .mushra-slider::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;background:var(--accent);border-radius:50%;cursor:pointer;}
+  .mushra-val{font-family:var(--mono);font-size:14px;font-weight:500;color:var(--accent);min-width:36px;text-align:right;}
+  .mushra-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:4px;}
+  .nav{display:flex;gap:12px;margin-top:2.5rem;align-items:center;}
+  .btn-primary{background:var(--accent);color:#0a0f0a;font-family:var(--mono);font-size:13px;font-weight:500;padding:.75rem 1.8rem;border:none;border-radius:6px;cursor:pointer;transition:all .15s;letter-spacing:.03em;}
+  .btn-primary:hover{background:var(--accent2);}
+  .btn-primary:disabled{opacity:.3;cursor:not-allowed;}
+  .nav-hint{font-size:12px;color:var(--muted);margin-left:auto;}
+  .section-break{border:1px solid var(--border);border-radius:8px;padding:1.5rem;background:var(--bg2);margin-bottom:2rem;}
+  .section-break h2{font-size:1.1rem;font-weight:400;margin-bottom:.4rem;}
+  .section-break p{color:var(--muted);font-size:13px;line-height:1.6;}
+  .section-icon{font-family:var(--mono);font-size:11px;color:var(--accent);border:1px solid rgba(74,222,128,.3);padding:2px 8px;border-radius:2px;margin-bottom:.75rem;display:inline-block;}
+  .results-header{margin-bottom:2rem;}
+  .results-header h2{font-size:1.5rem;font-weight:300;margin-bottom:.5rem;}
+  .results-header p{color:var(--muted);font-size:14px;}
+  .results-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:2rem;}
+  .results-cell{background:var(--bg2);padding:1rem 1.2rem;}
+  .results-cell-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+  .results-cell-val{font-size:1.4rem;font-weight:500;color:var(--accent);}
+  .csv-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1.5rem;}
+  .csv-box h3{font-family:var(--mono);font-size:13px;color:var(--muted);margin-bottom:1rem;letter-spacing:.05em;}
+  .csv-preview{font-family:var(--mono);font-size:11px;color:var(--text);background:var(--bg);padding:1rem;border-radius:6px;overflow-x:auto;white-space:pre;max-height:180px;overflow-y:auto;border:1px solid var(--border);margin-bottom:1rem;line-height:1.6;}
+  .download-btn{background:var(--bg3);border:1px solid var(--border);color:var(--accent);font-family:var(--mono);font-size:13px;padding:.7rem 1.4rem;border-radius:6px;cursor:pointer;transition:all .15s;}
+  .download-btn:hover{background:rgba(74,222,128,.08);border-color:var(--accent);}
+  .error-msg{font-size:13px;color:var(--red);margin-top:.5rem;display:none;}
+  .error-msg.show{display:block;}
+  @media(max-width:520px){
+    .info-grid,.results-summary{grid-template-columns:1fr;}
+    .pref-choices,.abx-choice,.abx-grid{grid-template-columns:1fr;}
+    h1{font-size:1.5rem;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">▸ TCN_EVAL</div>
+  <div class="progress-bar-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0 dokončeno</div>
+  </div>
+  <div class="effect-badge-header" id="headerEffectBadge" style="display:none"></div>
+</header>
+
+<main>
+
+<!-- ══ INTRO ══ -->
+<div class="screen active" id="screen-intro">
+  <div class="intro-badge">POSLECHOVÝ TEST — KYTAROVÉ EFEKTY</div>
+  <h1>Hodnocení kvality<br><span>digitální emulace</span></h1>
+  <p class="intro-text">
+    Tento test hodnotí kvalitu digitální emulace analogových kytarových efektů.
+    Budeš porovnávat audio nahrávky pomocí tří metod. Celková délka je přibližně 30 minut.
+    Používej prosím sluchátka v klidném prostředí a nastav si pohodlnou hlasitost.
+  </p>
+  <div class="info-grid">
+    <div class="info-cell">
+      <div class="info-cell-label">Metody</div>
+      <div class="info-cell-val">Preference · ABX · MUSHRA</div>
+    </div>
+    <div class="info-cell">
+      <div class="info-cell-label">Délka</div>
+      <div class="info-cell-val">~30 minut</div>
+    </div>
+    <div class="info-cell">
+      <div class="info-cell-label">Vybavení</div>
+      <div class="info-cell-val">Sluchátka nutná</div>
+    </div>
+  </div>
+
+  <div class="name-section">
+    <label>TVOJE JMÉNO / KÓDOVÉ OZNAČENÍ</label>
+    <input type="text" id="participantName" placeholder="např. jan_k nebo P01">
+  </div>
+
+  <div class="name-section">
+    <label>JAKÝ EFEKT BUDEŠ HODNOTIT?</label>
+    <select id="effectSelect">
+      <!-- ══════════════════════════════════════════════════════
+           PRO TEBE: Názvy efektů viditelné pro respondenta.
+           Respondent si vybírá, KTERÝ efekt testuje.
+           Modelová vrstva (5/7/10) se přiřazuje náhodně
+           a respondent o ní neví.
+           Uprav názvy dle svých dvou efektů:
+           - EFFECT_A = např. "Overdrive" (VST efekt)
+           - EFFECT_B = např. "Distortion" (analogový efekt)
+      ════════════════════════════════════════════════════════ -->
+      <option value="">— Vyber efekt —</option>
+      <option value="EFFECT_A">SGA1566</option>
+      <option value="EFFECT_B">Laney Ironheart IRT Studio</option>
+    </select>
+  </div>
+
+  <button class="btn-primary" onclick="startTest()">Začít test →</button>
+</div>
+
+<!-- ══ TASK ══ -->
+<div class="screen" id="screen-task">
+  <div class="task-meta" id="taskMeta"></div>
+  <div class="task-title" id="taskTitle"></div>
+  <div class="task-desc" id="taskDesc"></div>
+  <div id="taskContent"></div>
+  <div class="error-msg" id="errorMsg">Prosím vyber odpověď před pokračováním.</div>
+  <div class="nav">
+    <button class="btn-primary" id="btnNext" onclick="nextTask()">Další →</button>
+    <div class="nav-hint" id="navHint"></div>
+  </div>
+</div>
+
+<!-- ══ SECTION BREAK ══ -->
+<div class="screen" id="screen-break">
+  <div class="section-break">
+    <div class="section-icon" id="breakIcon">▸ SEKCE</div>
+    <h2 id="breakTitle"></h2>
+    <p id="breakDesc"></p>
+  </div>
+  <button class="btn-primary" onclick="continueFromBreak()">Pokračovat →</button>
+</div>
+
+<!-- ══ RESULTS ══ -->
+<div class="screen" id="screen-results">
+  <div class="results-header">
+    <h2>Test dokončen</h2>
+    <p>Děkuji za účast. Stáhni prosím CSV soubor a pošli ho autorovi.</p>
+  </div>
+  <div class="results-summary">
+    <div class="results-cell">
+      <div class="results-cell-label">Účastník</div>
+      <div class="results-cell-val" id="resPart" style="font-size:.95rem;margin-top:4px">—</div>
+    </div>
+    <div class="results-cell">
+      <div class="results-cell-label">Odpovědí</div>
+      <div class="results-cell-val" id="resCount">0</div>
+    </div>
+    <div class="results-cell">
+      <div class="results-cell-label">Datum</div>
+      <div class="results-cell-val" style="font-size:.95rem;margin-top:4px" id="resDate">—</div>
+    </div>
+  </div>
+  <div class="csv-box">
+    <h3>VÝSLEDKY (CSV)</h3>
+    <div class="csv-preview" id="csvPreview"></div>
+    <button class="download-btn" onclick="downloadCSV()">↓ Stáhnout CSV</button>
+  </div>
+</div>
+
+</main>
+<audio id="audioPlayer"></audio>
+
+<script>
+// ╔══════════════════════════════════════════════════════════════════╗
+// ║                  KONFIGURACE AUDIO SOUBORŮ                       ║
+// ║                                                                  ║
+// ║  Struktura: AUDIO[efekt][model][gain_stimul]                     ║
+// ║                                                                  ║
+// ║  EFEKTY:  "EFFECT_A" = VST efekt (např. Overdrive)              ║
+// ║           "EFFECT_B" = Analogový efekt (např. Distortion)        ║
+// ║                                                                  ║
+// ║  MODELY:  "L5"  = TCN 5 vrstev                                  ║
+// ║           "L8"  = TCN 8 vrstev                                   ║
+// ║           "L10" = TCN 10 vrstev                                  ║
+// ║                                                                  ║
+// ║  GAIN LEVELY: G1 (nízký) · G2 (střední) · G3 (vysoký)          ║
+// ║  STIMULY: pick (single-note) · chord (akordy) · palm (palm-mute) ║
+// ║                                                                  ║
+// ║  SPECIÁLNÍ KLÍČE:                                                ║
+// ║    ref_[gain]_[stim]  = nahrávka REÁLNÉHO zařízení              ║
+// ║                         (stejná pro všechny modely!)             ║
+// ║    anc_[gain]_[stim]  = anchor (zkomprimovaná verze ref)        ║
+// ║                         (také stejná pro všechny modely)         ║
+// ║                                                                  ║
+// ║  NÁVOD:                                                          ║
+// ║  1. Nahraj soubory na Google Drive                               ║
+// ║  2. Pravý klik → Sdílet → "Kdokoli s odkazem může zobrazit"     ║
+// ║  3. Zkopíruj FILE_ID z odkazu                                    ║
+// ║  4. URL = https://drive.google.com/uc?export=download&id=FILE_ID ║
+// ╚══════════════════════════════════════════════════════════════════╝
+
+const AUDIO = {
+
+  EFFECT_A: { // ← VST efekt (Overdrive nebo jak ho pojmenuješ)
+
+    ref: {
+      // Reálné nahrávky VST efektu — JEDNA sada, stejná pro L5/L7/L10
+      G1_pick:  "listening_test_audio/SGA/ref/G1_pick.wav",
+      G1_chord: "listening_test_audio/SGA/ref/G1_chord.wav",
+      G1_palm:  "listening_test_audio/SGA/ref/G1_palm.wav",
+      G2_pick:  "listening_test_audio/SGA/ref/G2_pick.wav",
+      G2_chord: "listening_test_audio/SGA/ref/G2_chord.wav",
+      G2_palm:  "listening_test_audio/SGA/ref/G2_palm.wav",
+      G3_pick:  "listening_test_audio/SGA/ref/G3_pick.wav",
+      G3_chord: "listening_test_audio/SGA/ref/G3_chord.wav",
+      G3_palm:  "listening_test_audio/SGA/ref/G3_palm.wav",
+    },
+    anc: {
+      // Anchor (zkomprimovaná / degradovaná verze ref) — pro MUSHRA
+      G1_pick:  "listening_test_audio/SGA/anc/G1_pick.wav",
+      G2_chord: "listening_test_audio/SGA/anc/G2_chord.wav",
+      G3_palm:  "listening_test_audio/SGA/anc/G3_palm.wav",
+    },
+
+    L5: { // TCN model — 5 vrstev
+      G1_pick:  "listening_test_audio/SGA/L5/G1_pick.wav",
+      G1_chord: "listening_test_audio/SGA/L5/G1_chord.wav",
+      G1_palm:  "listening_test_audio/SGA/L5/G1_palm.wav",
+      G2_pick:  "listening_test_audio/SGA/L5/G2_pick.wav",
+      G2_chord: "listening_test_audio/SGA/L5/G2_chord.wav",
+      G2_palm:  "listening_test_audio/SGA/L5/G2_palm.wav",
+      G3_pick:  "listening_test_audio/SGA/L5/G3_pick.wav",
+      G3_chord: "listening_test_audio/SGA/L5/G3_chord.wav",
+      G3_palm:  "listening_test_audio/SGA/L5/G3_palm.wav",
+    },
+    L8: { // TCN model — 8 vrstev
+      G1_pick:  "listening_test_audio/SGA/L8/G1_pick.wav",
+      G1_chord: "listening_test_audio/SGA/L8/G1_chord.wav",
+      G1_palm:  "listening_test_audio/SGA/L8/G1_palm.wav",
+      G2_pick:  "listening_test_audio/SGA/L8/G2_pick.wav",
+      G2_chord: "listening_test_audio/SGA/L8/G2_chord.wav",
+      G2_palm:  "listening_test_audio/SGA/L8/G2_palm.wav",
+      G3_pick:  "listening_test_audio/SGA/L8/G3_pick.wav",
+      G3_chord: "listening_test_audio/SGA/L8/G3_chord.wav",
+      G3_palm:  "listening_test_audio/SGA/L8/G3_palm.wav",
+    },
+    L10: { // TCN model — 10 vrstev
+      G1_pick:  "listening_test_audio/SGA/L10/G1_pick.wav",
+      G1_chord: "listening_test_audio/SGA/L10/G1_chord.wav",
+      G1_palm:  "listening_test_audio/SGA/L10/G1_palm.wav",
+      G2_pick:  "listening_test_audio/SGA/L10/G2_pick.wav",
+      G2_chord: "listening_test_audio/SGA/L10/G2_chord.wav",
+      G2_palm:  "listening_test_audio/SGA/L10/G2_palm.wav",
+      G3_pick:  "listening_test_audio/SGA/L10/G3_pick.wav",
+      G3_chord: "listening_test_audio/SGA/L10/G3_chord.wav",
+      G3_palm:  "listening_test_audio/SGA/L10/G3_palm.wav",
+    },
+  },
+
+  EFFECT_B: { // ← Analogový efekt (Distortion nebo jak ho pojmenuješ)
+
+    ref: {
+      // Reálné nahrávky analogového efektu
+      G1_pick:  "listening_test_audio/Laney/ref/G1_pick.wav",
+      G1_chord: "listening_test_audio/Laney/ref/G1_chord.wav",
+      G1_palm:  "listening_test_audio/Laney/ref/G1_palm.wav",
+      G2_pick:  "listening_test_audio/Laney/ref/G2_pick.wav",
+      G2_chord: "listening_test_audio/Laney/ref/G2_chord.wav",
+      G2_palm:  "listening_test_audio/Laney/ref/G2_palm.wav",
+      G3_pick:  "listening_test_audio/Laney/ref/G3_pick.wav",
+      G3_chord: "listening_test_audio/Laney/ref/G3_chord.wav",
+      G3_palm:  "listening_test_audio/Laney/ref/G3_palm.wav",
+    },
+    anc: {
+      G1_pick:  "listening_test_audio/Laney/anc/G1_pick.wav",
+      G2_chord: "listening_test_audio/Laney/anc/G2_chord.wav",
+      G3_palm:  "listening_test_audio/Laney/anc/G3_palm.wav",
+    },
+
+    L5: {
+      G1_pick:  "listening_test_audio/Laney/L5/G1_pick.wav",
+      G1_chord: "listening_test_audio/Laney/L5/G1_chord.wav",
+      G1_palm:  "listening_test_audio/Laney/L5/G1_palm.wav",
+      G2_pick:  "listening_test_audio/Laney/L5/G2_pick.wav",
+      G2_chord: "listening_test_audio/Laney/L5/G2_chord.wav",
+      G2_palm:  "listening_test_audio/Laney/L5/G2_palm.wav",
+      G3_pick:  "listening_test_audio/Laney/L5/G3_pick.wav",
+      G3_chord: "listening_test_audio/Laney/L5/G3_chord.wav",
+      G3_palm:  "listening_test_audio/Laney/L5/G3_palm.wav",
+    },
+    L8: {
+      G1_pick:  "listening_test_audio/Laney/L8/G1_pick.wav",
+      G1_chord: "listening_test_audio/Laney/L8/G1_chord.wav",
+      G1_palm:  "listening_test_audio/Laney/L8/G1_palm.wav",
+      G2_pick:  "listening_test_audio/Laney/L8/G2_pick.wav",
+      G2_chord: "listening_test_audio/Laney/L8/G2_chord.wav",
+      G2_palm:  "listening_test_audio/Laney/L8/G2_palm.wav",
+      G3_pick:  "listening_test_audio/Laney/L8/G3_pick.wav",
+      G3_chord: "listening_test_audio/Laney/L8/G3_chord.wav",
+      G3_palm:  "listening_test_audio/Laney/L8/G3_palm.wav",
+    },
+    L10: {
+      G1_pick:  "listening_test_audio/Laney/L10/G1_pick.wav",
+      G1_chord: "listening_test_audio/Laney/L10/G1_chord.wav",
+      G1_palm:  "listening_test_audio/Laney/L10/G1_palm.wav",
+      G2_pick:  "listening_test_audio/Laney/L10/G2_pick.wav",
+      G2_chord: "listening_test_audio/Laney/L10/G2_chord.wav",
+      G2_palm:  "listening_test_audio/Laney/L10/G2_palm.wav",
+      G3_pick:  "listening_test_audio/Laney/L10/G3_pick.wav",
+      G3_chord: "listening_test_audio/Laney/L10/G3_chord.wav",
+      G3_palm:  "listening_test_audio/Laney/L10/G3_palm.wav",
+    },
+  }
+};
+
+// ══════════════════════════════════════════════
+// POPISKY — uprav dle svých efektů a gain levelů
+// ══════════════════════════════════════════════
+const EFFECT_LABELS = {
+  EFFECT_A: "SGA1566",         // ← název viditelný respondentovi
+  EFFECT_B: "Laney Ironheart", // ← název viditelný respondentovi
+};
+const GAIN_LABELS  = { G1:"Gain 1 (nízký)", G2:"Gain 2 (střední)", G3:"Gain 3 (vysoký)" };
+const STIM_LABELS  = { pick:"Single-note picking", chord:"Akordické pasáže", palm:"Palm-muted rytmus" };
+
+// ══════════════════════════════════════════════
+// SESTAVENÍ TESTU
+// ══════════════════════════════════════════════
+function pickModel() {
+  // Náhodně přiřaď jeden model — respondent o tom neví.
+  // V CSV se uloží jako "assigned_model" pro tvoji analýzu.
+  const models = ["L5","L8","L10"];
+  return models[Math.floor(Math.random() * models.length)];
+}
+
+function buildTasks(effect, model) {
+  const au = AUDIO[effect];
+  const tasks = [];
+
+  // ── PREFERENCE: 3 gain × 3 stim = 9 párů ──
+  // (sníženo ze 4 gainů na 3 aby se ušetřil čas)
+  for (const gain of ["G1","G2","G3"]) {
+    for (const stim of ["pick","chord","palm"]) {
+      const flip = Math.random() > .5;
+      const urlRef = au.ref[`${gain}_${stim}`];
+      const urlTcn = au[model][`${gain}_${stim}`];
+      tasks.push({
+        type:"PREF", gain, stim,
+        urlA: flip ? urlTcn : urlRef,
+        urlB: flip ? urlRef : urlTcn,
+        aIsRef: !flip,
+      });
+    }
+  }
+
+  tasks.push({ type:"BREAK",
+    title:"Část 2 — ABX test",
+    desc:"Uslyšíš tři vzorky: A, B a neznámé X. Urči, zda X = A nebo X = B. Vzorky si přehrej opakovaně — soustřeď se na attack, harmonické bohatství a charakter zkreslení." });
+
+  // ── ABX: 2 gain × 3 stim = 6 triálů ──
+  for (const gain of ["G1","G3"]) {
+    for (const stim of ["pick","chord","palm"]) {
+      const xIsRef = Math.random() > .5;
+      tasks.push({
+        type:"ABX", gain, stim,
+        urlA: au.ref[`${gain}_${stim}`],
+        urlB: au[model][`${gain}_${stim}`],
+        urlX: xIsRef ? au.ref[`${gain}_${stim}`] : au[model][`${gain}_${stim}`],
+        xIsRef,
+      });
+    }
+  }
+
+  tasks.push({ type:"BREAK",
+    title:"Část 3 — MUSHRA",
+    desc:"Uslyšíš referenční vzorek a tři další. Ohodnoť každý posuvníkem 0–100 podle toho, jak blízko je referenci. Referenci si přehrej kdykoli. Pokud cítíš únavu, udělej si krátkou pauzu." });
+
+  // ── MUSHRA: 2 gain × 2 stim = 4 bloky ──
+  for (const gain of ["G1","G3"]) {
+    for (const stim of ["pick","chord"]) {
+      const key = `${gain}_${stim}`;
+      const ancKey = au.anc[key] ? key : Object.keys(au.anc)[0];
+      tasks.push({
+        type:"MUSHRA", gain, stim,
+        urlRef: au.ref[key],
+        samples: shuffle([
+          { id:"TCN",   url: au[model][key],  label:"Vzorek A" },
+          { id:"REF_H", url: au.ref[key],     label:"Vzorek B" }, // skrytá reference
+          { id:"ANC",   url: au.anc[ancKey],  label:"Vzorek C" }, // anchor
+        ]),
+      });
+    }
+  }
+
+  return tasks;
+}
+
+function shuffle(a) {
+  for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let tasks=[], taskIdx=0, results=[], participant="", assignedModel="", selectedEffect="", audios={}, currentAudioKey=null;
+
+function startTest() {
+  participant = document.getElementById("participantName").value.trim();
+  selectedEffect = document.getElementById("effectSelect").value;
+  if (!participant) { document.getElementById("participantName").focus(); return; }
+  if (!selectedEffect) { document.getElementById("effectSelect").focus(); return; }
+
+  assignedModel = pickModel(); // skrytě přiřazený model
+  tasks = buildTasks(selectedEffect, assignedModel);
+
+  document.getElementById("headerEffectBadge").textContent = EFFECT_LABELS[selectedEffect];
+  document.getElementById("headerEffectBadge").style.display = "block";
+
+  showScreen("screen-task");
+  renderTask();
+  updateProgress();
+}
+
+function nextTask() {
+  const task = tasks[taskIdx];
+  if (!validateTask(task)) {
+    document.getElementById("errorMsg").classList.add("show");
+    return;
+  }
+  document.getElementById("errorMsg").classList.remove("show");
+  collectResult(task);
+  stopAllAudio();
+  taskIdx++;
+  if (taskIdx >= tasks.length) { showResults(); return; }
+  const next = tasks[taskIdx];
+  if (next.type === "BREAK") { showBreak(next); }
+  else { showScreen("screen-task"); renderTask(); }
+  updateProgress();
+}
+
+function continueFromBreak() {
+  taskIdx++;
+  if (taskIdx >= tasks.length) { showResults(); return; }
+  showScreen("screen-task");
+  renderTask();
+  updateProgress();
+}
+
+// ══════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════
+function renderTask() {
+  const task = tasks[taskIdx];
+  audios = {}; currentAudioKey = null;
+
+  const nonBreaks = tasks.filter(t=>t.type!=="BREAK");
+  const done = results.length;
+  document.getElementById("navHint").textContent = `Otázka ${done+1} z ${nonBreaks.length}`;
+  document.getElementById("taskMeta").innerHTML = `
+    <span class="tag tag-method">${task.type}</span>
+    <span class="tag tag-gain">${GAIN_LABELS[task.gain]}</span>
+    <span class="tag tag-stim">${STIM_LABELS[task.stim]}</span>`;
+
+  const content = document.getElementById("taskContent");
+
+  if (task.type==="PREF") {
+    document.getElementById("taskTitle").textContent = "Který zvuk preferuješ?";
+    document.getElementById("taskDesc").textContent = "Přehraj oba vzorky (opakovaně) a zvol, který ti zní přirozeněji nebo věrněji originálu.";
+    content.innerHTML = `
+      <div class="player-row">${mkPlayer("A",task.urlA,"Vzorek A")}</div>
+      <div class="player-row">${mkPlayer("B",task.urlB,"Vzorek B")}</div>
+      <div class="pref-choices">
+        <button class="pref-btn" onclick="selectPref('A')" id="prefA">Preferuji A</button>
+        <button class="pref-btn" onclick="selectPref('B')" id="prefB">Preferuji B</button>
+      </div>`;
+    bindAudio("A",task.urlA); bindAudio("B",task.urlB);
+
+  } else if (task.type==="ABX") {
+    document.getElementById("taskTitle").textContent = "Je X stejný jako A nebo B?";
+    document.getElementById("taskDesc").textContent = "Přehraj vzorky A, B a neznámé X. Urči, čemu se X rovná.";
+    content.innerHTML = `
+      <div class="abx-grid">
+        <div class="player-row">${mkPlayer("A",task.urlA,"Vzorek A")}</div>
+        <div class="player-row">${mkPlayer("B",task.urlB,"Vzorek B")}</div>
+      </div>
+      <div class="abx-x-row">
+        <div class="abx-x-label">▸ NEZNÁMÝ VZOREK X</div>
+        <div class="abx-x-box"><div class="player-row">${mkPlayer("X",task.urlX,"Vzorek X")}</div></div>
+      </div>
+      <div class="abx-choice">
+        <button class="abx-btn" onclick="selectABX('A')" id="abxA">X = A</button>
+        <button class="abx-btn" onclick="selectABX('B')" id="abxB">X = B</button>
+      </div>`;
+    bindAudio("A",task.urlA); bindAudio("B",task.urlB); bindAudio("X",task.urlX);
+
+  } else if (task.type==="MUSHRA") {
+    document.getElementById("taskTitle").textContent = "Ohodnoť vzorky v porovnání s referencí";
+    document.getElementById("taskDesc").textContent = "Přehraj referenci, pak každý vzorek. Posuň posuvník: 0 = velmi špatná shoda, 100 = identické s referencí.";
+    const sampHtml = task.samples.map(s=>`
+      <div class="mushra-sample">
+        <div class="mushra-sample-top">
+          <span class="mushra-sample-id">${s.label}</span>
+          <div class="player-row" style="flex:1;margin:0">${mkPlayer(s.id,s.url,s.label)}</div>
+        </div>
+        <div class="mushra-slider-row">
+          <input type="range" class="mushra-slider" id="slider_${s.id}" min="0" max="100" value="50"
+            oninput="document.getElementById('val_${s.id}').textContent=this.value">
+          <span class="mushra-val" id="val_${s.id}">50</span>
+        </div>
+        <div class="mushra-labels"><span>0 — špatná</span><span>50 — přijatelná</span><span>100 — výborná</span></div>
+      </div>`).join("");
+    content.innerHTML = `
+      <div class="mushra-ref">
+        <div class="mushra-ref-label">▸ REFERENCE (originální zařízení)</div>
+        <div class="player-row">${mkPlayer("REF",task.urlRef,"Reference")}</div>
+      </div>
+      <div class="mushra-samples">${sampHtml}</div>`;
+    bindAudio("REF",task.urlRef);
+    task.samples.forEach(s=>bindAudio(s.id,s.url));
+  }
+}
+
+function mkPlayer(key, url, label) {
+  const hasUrl = url && !url.startsWith("PLACEHOLDER");
+  return `
+    <button class="play-btn" id="btn_${key}" onclick="togglePlay('${key}')">
+      <svg viewBox="0 0 16 16" fill="currentColor" id="icon_${key}"><polygon points="3,1 13,8 3,15"/></svg>
+      ${label}
+    </button>
+    <input type="range" class="progress-audio" id="prog_${key}" min="0" max="100" value="0"
+      oninput="seekAudio('${key}',this.value)" ${hasUrl?'':'style="display:none"'}>
+    <span class="time-label" id="time_${key}">0:00</span>`;
+}
+
+function bindAudio(key,url) {
+  if (!url||url.startsWith("PLACEHOLDER")) return;
+  const a=new Audio(url);
+  a.addEventListener("timeupdate",()=>{
+    const p=document.getElementById("prog_"+key);
+    const t=document.getElementById("time_"+key);
+    if(p&&a.duration) p.value=(a.currentTime/a.duration)*100;
+    if(t) t.textContent=fmt(a.currentTime);
+  });
+  a.addEventListener("ended",()=>{
+    const b=document.getElementById("btn_"+key);
+    const i=document.getElementById("icon_"+key);
+    if(b) b.classList.remove("playing");
+    if(i) i.innerHTML='<polygon points="3,1 13,8 3,15"/>';
+    if(currentAudioKey===key) currentAudioKey=null;
+  });
+  audios[key]=a;
+}
+
+function togglePlay(key) {
+  if(!audios[key]){alert("Audio URL není nastavena (PLACEHOLDER). Nahraď URL v sekci AUDIO v kódu.");return;}
+  if(currentAudioKey&&currentAudioKey!==key) pauseKey(currentAudioKey);
+  const a=audios[key];
+  const b=document.getElementById("btn_"+key);
+  const i=document.getElementById("icon_"+key);
+  if(a.paused){
+    a.play(); b.classList.add("playing");
+    i.innerHTML='<rect x="3" y="1" width="3.5" height="14"/><rect x="9.5" y="1" width="3.5" height="14"/>';
+    currentAudioKey=key;
+  } else { pauseKey(key); }
+}
+function pauseKey(key){
+  if(!audios[key]) return;
+  audios[key].pause();
+  const b=document.getElementById("btn_"+key);
+  const i=document.getElementById("icon_"+key);
+  if(b) b.classList.remove("playing");
+  if(i) i.innerHTML='<polygon points="3,1 13,8 3,15"/>';
+  if(currentAudioKey===key) currentAudioKey=null;
+}
+function seekAudio(key,val){
+  if(!audios[key]||!audios[key].duration) return;
+  audios[key].currentTime=(val/100)*audios[key].duration;
+}
+function stopAllAudio(){
+  Object.values(audios).forEach(a=>{if(a){a.pause();a.currentTime=0;}});
+  currentAudioKey=null;
+}
+function fmt(s){const m=Math.floor(s/60);return `${m}:${Math.floor(s%60).toString().padStart(2,"0")}`;}
+
+// ── Selections ──
+let prefChoice=null, abxChoice=null;
+function selectPref(c){
+  prefChoice=c;
+  document.getElementById("prefA").classList.toggle("selected",c==="A");
+  document.getElementById("prefB").classList.toggle("selected",c==="B");
+}
+function selectABX(c){
+  abxChoice=c;
+  document.getElementById("abxA").classList.toggle("selected",c==="A");
+  document.getElementById("abxB").classList.toggle("selected",c==="B");
+}
+function validateTask(t){
+  if(t.type==="PREF") return prefChoice!==null;
+  if(t.type==="ABX")  return abxChoice!==null;
+  return true;
+}
+function collectResult(task){
+  // ══════════════════════════════════════════════════════════════
+  // PRO TEBE: CSV bude mít sloupce:
+  //   participant, timestamp, effect, assigned_model, method,
+  //   gain, stim, + specifické sloupce dle metody
+  //
+  // "assigned_model" = L5 / L7 / L10 — respondent toto nevidí,
+  //  ty to použiješ pro porovnání modelů napříč respondenty.
+  // ══════════════════════════════════════════════════════════════
+  const base = {
+    participant,
+    timestamp: new Date().toISOString(),
+    effect: EFFECT_LABELS[selectedEffect],
+    assigned_model: assignedModel,  // ← klíčový sloupec pro tvoji analýzu
+    method: task.type,
+    gain: task.gain||"",
+    stim: task.stim||"",
+  };
+  if(task.type==="PREF"){
+    const prefRef=(task.aIsRef&&prefChoice==="A")||(!task.aIsRef&&prefChoice==="B");
+    results.push({...base, choice:prefChoice, preferred_original: prefRef?"yes":"no"});
+    prefChoice=null;
+  } else if(task.type==="ABX"){
+    const correct=(abxChoice==="A"&&task.xIsRef)||(abxChoice==="B"&&!task.xIsRef);
+    results.push({...base, answer:abxChoice, x_was:"original"+(task.xIsRef?"":"_tcn"), correct:correct?"yes":"no"});
+    abxChoice=null;
+  } else if(task.type==="MUSHRA"){
+    const vals={};
+    task.samples.forEach(s=>{
+      const el=document.getElementById("slider_"+s.id);
+      // id=TCN→skóre emulace, id=REF_H→skrytá ref (validace), id=ANC→anchor
+      vals["score_"+s.id]=el?el.value:"—";
+    });
+    results.push({...base,...vals});
+  }
+}
+
+// ══════════════════════════════════════════════
+// SCREENS & PROGRESS
+// ══════════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function showBreak(task){
+  document.getElementById("breakTitle").textContent=task.title;
+  document.getElementById("breakDesc").textContent=task.desc;
+  showScreen("screen-break");
+}
+function updateProgress(){
+  const total=tasks.filter(t=>t.type!=="BREAK").length;
+  const done=results.length;
+  const pct=total?(done/total)*100:0;
+  document.getElementById("progressFill").style.width=pct+"%";
+  document.getElementById("progressLabel").textContent=`${done} / ${total} dokončeno`;
+}
+
+// ══════════════════════════════════════════════
+// RESULTS & CSV
+// ══════════════════════════════════════════════
+function showResults(){
+  stopAllAudio();
+  document.getElementById("resPart").textContent=participant;
+  document.getElementById("resCount").textContent=results.length;
+  document.getElementById("resDate").textContent=new Date().toLocaleDateString("cs-CZ");
+  document.getElementById("progressFill").style.width="100%";
+  document.getElementById("progressLabel").textContent="Dokončeno";
+  const csv=buildCSV();
+  document.getElementById("csvPreview").textContent=csv;
+  showScreen("screen-results");
+}
+function buildCSV(){
+  if(!results.length) return "";
+  const keys=[...new Set(results.flatMap(r=>Object.keys(r)))];
+  return [keys.join(","),...results.map(r=>keys.map(k=>JSON.stringify(r[k]??"")).join(","))].join("\n");
+}
+function downloadCSV(){
+  const blob=new Blob([buildCSV()],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`tcn_eval_${participant}_${selectedEffect}_${assignedModel}_${Date.now()}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
